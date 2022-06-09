@@ -155,7 +155,7 @@ export class HttpsServer {
 
       fakeServer.on('upgrade', (req, socket, head) => {
         const ssl = true;
-        this.upgradeHandler(req, socket, head, ssl);
+        try { this.upgradeHandler(req, socket, head, ssl); } catch(e) { console.error('WEBSOCKET PROBABLY FAILED'); console.error(e); }
       });
     });
 
