@@ -15,6 +15,30 @@ import { ContextNoMitm } from './types/contexts/context-no-mitm';
 import { Logger } from './common/logger';
 import { ExtendedNetSocket } from './types/extended-net-socket';
 
+type DictStringString = {[key: string]: string};
+type DictStringBoolean = {[key: string]: boolean};
+Object.defineProperty(http.IncomingMessage.prototype, 'headersOriginalCase', {
+  configurable: true,
+  writable: true,
+  value: function() {
+   const headersOriginalCase = {} as DictStringString;
+   const headersKeysPresent = {} as DictStringBoolean;
+   const headersKeys = [];
+   for (let n = 0; n <= this.rawHeaders.length; n += 2) headersKeys.push(this.rawHeaders[n]);
+   for (const key of Object.keys(this.headers)) headersKeys.push(key);
+   for (const key of headersKeys) {
+       if (!key) continue;
+       const keyLowerCased = key.toLowerCase();
+       if (headersKeysPresent[keyLowerCased]) continue;
+       headersKeysPresent[keyLowerCased] = true;
+       const value = this.headers[keyLowerCased];
+       if (!value) continue;
+       headersOriginalCase[key] = value;
+   }
+   return headersOriginalCase;
+  }
+});
+
 export class NewProxy {
   public readonly httpServer: http.Server = new http.Server();
 

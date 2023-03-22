@@ -41,11 +41,11 @@ export function createUpgradeHandler(proxyConfig: ProxyConfig, logger: Logger): 
       if (proxyHead && proxyHead.length > 0) proxySocket.unshift(proxyHead);
 
       clientSocket.write(
-        `${Object.keys(proxyRes.headers)
+        `${Object.keys(proxyRes.headersOriginalCase())
           // eslint-disable-next-line unicorn/no-reduce
           .reduce(
             (aggregator, key) => {
-              const value = proxyRes.headers[key];
+              const value = proxyRes.headers[key.toLowerCase()];
 
               if (!Array.isArray(value)) {
                 aggregator.push(`${key}: ${value}`);

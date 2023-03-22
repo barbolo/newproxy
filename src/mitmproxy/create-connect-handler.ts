@@ -66,8 +66,8 @@ function connectNoMitmExternalProxy(
         `CONNECT ${hostname}:${port} HTTP/${context.connectRequest.httpVersion}\r\n`,
       );
       ['host', 'user-agent', 'proxy-connection'].forEach((name) => {
-        if (name in context.connectRequest.headers) {
-          proxySocket.write(`${name}: ${context.connectRequest.headers[name]}\r\n`);
+        if (name in context.connectRequest.headersOriginalCase()) {
+          proxySocket.write(`${name}: ${context.connectRequest.headers[name.toLowerCase()]}\r\n`);
         }
       });
 

@@ -128,17 +128,17 @@ export class RequestHandler {
       internalLogger('Headers sent already');
     } else {
       // prevent duplicate set headers
-      Object.keys(proxyRes.headers).forEach((key) => {
+      Object.keys(proxyRes.headersOriginalCase()).forEach((key) => {
         try {
           let headerName = key;
-          const headerValue = proxyRes.headers[headerName];
+          const headerValue = proxyRes.headers[headerName.toLowerCase()];
 
           if (headerValue) {
             // https://github.com/nodejitsu/node-http-proxy/issues/362
             if (/^www-authenticate$/i.test(headerName)) {
-              if (proxyRes.headers[headerName]) {
+              if (proxyRes.headers[headerName.toLowerCase()]) {
                 // @ts-ignore
-                proxyRes.headers[headerName] =
+                proxyRes.headers[headerName.toLowerCase()] =
                   headerValue && typeof headerValue === 'string' && headerValue.split(',');
               }
               headerName = 'www-authenticate';
@@ -174,6 +174,7 @@ export class RequestHandler {
       // use the bind socket for NTLM
 
       const onFree = (): void => {
+        if (this.req.httpVersion == '1.1') self.rOptions.headers = this.req.headersOriginalCase();
         self.proxyReq = (self.rOptions.protocol === 'https:' ? https : http).request(
           self.rOptions,
           (proxyRes: IncomingMessage) => {

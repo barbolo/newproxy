@@ -687,10 +687,10 @@ function createUpgradeHandler(proxyConfig, logger) {
             proxySocket.setKeepAlive(true, 0);
             if (proxyHead && proxyHead.length > 0)
                 proxySocket.unshift(proxyHead);
-            clientSocket.write(`${Object.keys(proxyRes.headers)
+            clientSocket.write(`${Object.keys(proxyRes.headersOriginalCase())
                 // eslint-disable-next-line unicorn/no-reduce
                 .reduce((aggregator, key) => {
-                const value = proxyRes.headers[key];
+                const value = proxyRes.headers[key.toLowerCase()];
                 if (!Array.isArray(value)) {
                     aggregator.push(`${key}: ${value}`);
                     return aggregator;
@@ -748,8 +748,8 @@ function connectNoMitmExternalProxy(proxyHelper, context, hostname, port, logger
     const proxySocket = net__default["default"].connect(Number(proxyHelper.getUrlObject().port), proxyHelper.getUrlObject().hostname, () => {
         proxySocket.write(`CONNECT ${hostname}:${port} HTTP/${context.connectRequest.httpVersion}\r\n`);
         ['host', 'user-agent', 'proxy-connection'].forEach((name) => {
-            if (name in context.connectRequest.headers) {
-                proxySocket.write(`${name}: ${context.connectRequest.headers[name]}\r\n`);
+            if (name in context.connectRequest.headersOriginalCase()) {
+                proxySocket.write(`${name}: ${context.connectRequest.headers[name.toLowerCase()]}\r\n`);
             }
         });
         const proxyAuth = proxyHelper.getLoginAndPassword();
@@ -920,16 +920,16 @@ class RequestHandler {
         }
         else {
             // prevent duplicate set headers
-            Object.keys(proxyRes.headers).forEach((key) => {
+            Object.keys(proxyRes.headersOriginalCase()).forEach((key) => {
                 try {
                     let headerName = key;
-                    const headerValue = proxyRes.headers[headerName];
+                    const headerValue = proxyRes.headers[headerName.toLowerCase()];
                     if (headerValue) {
                         // https://github.com/nodejitsu/node-http-proxy/issues/362
                         if (/^www-authenticate$/i.test(headerName)) {
-                            if (proxyRes.headers[headerName]) {
+                            if (proxyRes.headers[headerName.toLowerCase()]) {
                                 // @ts-ignore
-                                proxyRes.headers[headerName] =
+                                proxyRes.headers[headerName.toLowerCase()] =
                                     headerValue && typeof headerValue === 'string' && headerValue.split(',');
                             }
                             headerName = 'www-authenticate';
@@ -960,6 +960,8 @@ class RequestHandler {
             this.rOptions.host = this.rOptions.hostname || this.rOptions.host || 'localhost';
             // use the bind socket for NTLM
             const onFree = () => {
+                if (this.req.httpVersion == '1.1')
+                    self.rOptions.headers = this.req.headersOriginalCase();
                 self.proxyReq = (self.rOptions.protocol === 'https:' ? https__default["default"] : http__default["default"]).request(self.rOptions, (proxyRes) => {
                     resolve(proxyRes);
                 });
@@ -1253,7 +1255,13 @@ class HttpsServer {
             });
             fakeServer.on('upgrade', (req, socket, head) => {
                 const ssl = true;
-                this.upgradeHandler(req, socket, head, ssl);
+                try {
+                    this.upgradeHandler(req, socket, head, ssl);
+                }
+                catch (e) {
+                    console.error('WEBSOCKET PROBABLY FAILED');
+                    console.error(e);
+                }
             });
         });
         try {
@@ -1371,6 +1379,32 @@ class ContextNoMitm extends AbstractContext {
     }
 }
 
+Object.defineProperty(http__default["default"].IncomingMessage.prototype, 'headersOriginalCase', {
+    configurable: true,
+    writable: true,
+    value: function () {
+        const headersOriginalCase = {};
+        const headersKeysPresent = {};
+        const headersKeys = [];
+        for (let n = 0; n <= this.rawHeaders.length; n += 2)
+            headersKeys.push(this.rawHeaders[n]);
+        for (const key of Object.keys(this.headers))
+            headersKeys.push(key);
+        for (const key of headersKeys) {
+            if (!key)
+                continue;
+            const keyLowerCased = key.toLowerCase();
+            if (headersKeysPresent[keyLowerCased])
+                continue;
+            headersKeysPresent[keyLowerCased] = true;
+            const value = this.headers[keyLowerCased];
+            if (!value)
+                continue;
+            headersOriginalCase[key] = value;
+        }
+        return headersOriginalCase;
+    }
+});
 class NewProxy {
     constructor(proxyConfig, logger) {
         this.proxyConfig = proxyConfig;
